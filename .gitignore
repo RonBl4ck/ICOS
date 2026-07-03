@@ -1,0 +1,18 @@
+# Ignorar el archivo de claves privadas reales (¡NUNCA SUBIR A GITHUB!)
+.streamlit/secrets.toml
+
+# Ignorar base de datos local generada de desarrollo
+db_local.xlsx
+
+# Ignorar archivos generados de python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Ignorar archivos temporales o generados de reportes
+*.pdf
+generados/
+output/
+.env
+.env.*
+.vscode/
