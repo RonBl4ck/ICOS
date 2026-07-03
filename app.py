@@ -117,8 +117,13 @@ st.markdown("""
 # MENÚ LATERAL Y NAVEGACIÓN
 # ------------------------------------------------------------------
 with st.sidebar:
-    st.image("MARCA/Logo a colores.jpg", use_container_width=True)
-    st.markdown("<h3 style='color:#3c5b9e; margin-top:15px; text-align:center;'>ICOS Contratista</h3>", unsafe_allow_html=True)
+    import os
+    logo_path = "MARCA/Logo a colores.jpg"
+    if os.path.exists(logo_path):
+        st.image(logo_path, use_container_width=True)
+    else:
+        st.markdown("<h2 style='color:#3c5b9e; text-align:center; margin-top:10px;'>PLUZ</h2>", unsafe_allow_html=True)
+    st.markdown("<h3 style='color:#3c5b9e; margin-top:5px; text-align:center;'>ICOS Contratista</h3>", unsafe_allow_html=True)
     st.markdown("<p style='text-align:center; font-size:12px; color:#6B7280;'>Auditoría Técnica y Control de Calidad</p>", unsafe_allow_html=True)
     st.markdown("---")
     
