@@ -217,13 +217,13 @@ def registrar_revision(datos_revision):
                 # Escribir cabecera si está vacía
                 if not worksheet.get_all_values():
                     worksheet.append_row([
-                        "ID_Revision", "Fecha", "LCL", "Cliente", "Nº Revisión", 
-                        "Distrito", "Contratista", "Tipo de atención", "Supervisor", "Estado", "Observaciones", "Respuestas"
+                        "Fecha", "LCL", "Cliente", "Nº Revisión", "Distrito", 
+                        "Contratista", "Tipo de atención", "Supervisor", "Estado",
+                        "ID_Revision", "Observaciones", "Respuestas"
                     ])
                 
-                # Escribir la fila
+                # Escribir la fila respetando el orden original (iniciando con Fecha en columna A)
                 worksheet.append_row([
-                    datos_revision["ID_Revision"],
                     datos_revision["Fecha"],
                     datos_revision["LCL"],
                     datos_revision["Cliente"],
@@ -233,6 +233,7 @@ def registrar_revision(datos_revision):
                     datos_revision["Tipo_Atencion"],
                     datos_revision["Supervisor"],
                     datos_revision["Estado"],
+                    datos_revision["ID_Revision"],
                     datos_revision["Observaciones"],
                     datos_revision["Respuestas"]
                 ])
@@ -244,18 +245,18 @@ def registrar_revision(datos_revision):
     if modo == "local":
         inicializar_db_local()
         try:
-            # Estructurar fila local
+            # Estructurar fila local con el orden de columnas unificado
             nueva_fila = pd.DataFrame([{
-                "ID_Revision": datos_revision["ID_Revision"],
                 "Fecha": datos_revision["Fecha"],
                 "LCL": datos_revision["LCL"],
                 "Cliente": datos_revision["Cliente"],
+                "Numero_Revision": int(datos_revision["Numero_Revision"]),
                 "Distrito": datos_revision["Distrito"],
                 "Contratista": datos_revision["Contratista"],
-                "Supervisor": datos_revision["Supervisor"],
                 "Tipo_Atencion": datos_revision["Tipo_Atencion"],
-                "Numero_Revision": int(datos_revision["Numero_Revision"]),
+                "Supervisor": datos_revision["Supervisor"],
                 "Estado": datos_revision["Estado"],
+                "ID_Revision": datos_revision["ID_Revision"],
                 "Observaciones": datos_revision["Observaciones"],
                 "Respuestas": datos_revision["Respuestas"]
             }])
