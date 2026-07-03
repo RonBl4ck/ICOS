@@ -148,15 +148,26 @@ with st.sidebar:
 # ------------------------------------------------------------------
 # PÁGINA 1: NUEVA REVISIÓN
 # ------------------------------------------------------------------
+def resetear_checklist_callback():
+    # Callback ejecutado por Streamlit únicamente cuando el usuario cambia el tipo de atención
+    nuevo_tipo = st.session_state.tipo_atencion_widget
+    st.session_state.tipo_atencion_actual = nuevo_tipo
+    # Inicializar las respuestas del nuevo tipo de atención a sus valores por defecto
+    checklist_items = checklists.obtener_checklist_completo(nuevo_tipo)
+    for item in checklist_items:
+        st.session_state[f"widget_resp_{item['id']}"] = item["respuesta_defecto"]
+
 if page == "📝 Nuevo Formato ICO":
     st.markdown("<h1 style='color:#3c5b9e;'>FORMATO ICO</h1>", unsafe_allow_html=True)
     st.markdown("Complete la información general e inspeccione los requisitos del checklist.")
     
-    # Inicializar estados de la sesión para persistir búsquedas
+    # Inicializar estados de la sesión para persistir búsquedas e inicializaciones
     if "proyecto_encontrado" not in st.session_state:
         st.session_state.proyecto_encontrado = None
     if "lcl_buscado" not in st.session_state:
         st.session_state.lcl_buscado = None
+    if "tipo_atencion_actual" not in st.session_state:
+        st.session_state.tipo_atencion_actual = "Reforma"
 
     # --------------------------------------------------------------
     # COLUMNADO PRINCIPAL: IZQUIERDA (Búsqueda, Info y Dictamen) / DERECHA (Checklist)
@@ -221,8 +232,14 @@ if page == "📝 Nuevo Formato ICO":
             )
             
             # Recuperar respuestas para calcular el estado en tiempo real
-            tipo_atencion = st.session_state.get("tipo_atencion_seleccionado", "Reforma")
+            tipo_atencion = st.session_state.tipo_atencion_actual
             checklist_items = checklists.obtener_checklist_completo(tipo_atencion)
+            
+            # Asegurar la inicialización inicial del checklist
+            for item in checklist_items:
+                k_name = f"widget_resp_{item['id']}"
+                if k_name not in st.session_state:
+                    st.session_state[k_name] = item["respuesta_defecto"]
             
             respuestas_actuales = {}
             tiene_no = False
@@ -314,44 +331,32 @@ if page == "📝 Nuevo Formato ICO":
     # --- COLUMNA DERECHA: TIPO DE ATENCIÓN Y CHECKLIST COMPACTO ---
     with col_der:
         if st.session_state.proyecto_encontrado:
-            tipo_atencion = st.session_state.get("tipo_atencion_seleccionado", "Reforma")
+            tipo_atencion = st.session_state.tipo_atencion_actual
             checklist_items = checklists.obtener_checklist_completo(tipo_atencion)
             
-            # Sincronizar respuestas en la sesión cuando cambia el tipo de atención
-            if "last_tipo_atencion" not in st.session_state or st.session_state.last_tipo_atencion != tipo_atencion:
-                for item in checklist_items:
-                    st.session_state[f"widget_resp_{item['id']}"] = item["respuesta_defecto"]
-                st.session_state.last_tipo_atencion = tipo_atencion
-                st.rerun()
+            options_atencion = [
+                "Reforma",
+                "Reforma Sustancial",
+                "Informe de Factibilidad",
+                "Informe de Pre Factibilidad",
+                "Obra Civil",
+                "Informe de Área"
+            ]
+            default_sel_idx = options_atencion.index(tipo_atencion)
 
             st.subheader("3. Tipo de Atención y Checklist")
             
-            # Selector de Tipo de Atención (sincronizado con key)
+            # Selector de Tipo de Atención (sincronizado con key y callback)
             st.selectbox(
                 "Seleccione el Tipo de Atención:",
-                [
-                    "Reforma",
-                    "Reforma Sustancial",
-                    "Informe de Factibilidad",
-                    "Informe de Pre Factibilidad",
-                    "Obra Civil",
-                    "Informe de Área"
-                ],
-                key="tipo_atencion_seleccionado",
+                options_atencion,
+                index=default_sel_idx,
+                key="tipo_atencion_widget",
+                on_change=resetear_checklist_callback,
                 label_visibility="collapsed"
             )
             
-            st.markdown("---")
-            st.markdown("#### Lista de Requisitos")
-            
-            c_head1, c_head2, c_head3 = st.columns([1, 7, 4])
-            with c_head1:
-                st.markdown("<span style='font-size:12px; font-weight:bold;'>Nº</span>", unsafe_allow_html=True)
-            with c_head2:
-                st.markdown("<span style='font-size:12px; font-weight:bold;'>Descripción del Requisito</span>", unsafe_allow_html=True)
-            with c_head3:
-                st.markdown("<span style='font-size:12px; font-weight:bold;'>Respuesta</span>", unsafe_allow_html=True)
-            st.markdown("<hr style='margin: 5px 0 10px 0; border: 1.5px solid #3c5b9e;'>", unsafe_allow_html=True)
+            st.write("") # Pequeño espacio de separación
             
             # Mostrar los 39 requisitos en tamaño compacto
             for item in checklist_items:
@@ -380,7 +385,7 @@ if page == "📝 Nuevo Formato ICO":
         else:
             st.info("💡 Ingrese un código LCL a la izquierda y presione Buscar para cargar el Formato ICO.")
             
-    # ------------------------------------------------------------------
+# ------------------------------------------------------------------
 # PÁGINA 2: HISTORIAL DE REVISIONES
 # ------------------------------------------------------------------
 elif page == "📊 Historial de Formatos ICO":
