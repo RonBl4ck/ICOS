@@ -365,14 +365,13 @@ if page == "📝 Nuevo Formato ICO":
                 with r_col2:
                     st.markdown(f"<span style='font-size:11px; line-height:1.2; display:block;'>{descripcion}</span>", unsafe_allow_html=True)
                 with r_col3:
-                    # Leer valor de la sesión o el valor por defecto
-                    val_actual = st.session_state.get(f"widget_resp_{q_id}", item["respuesta_defecto"])
-                    default_idx = ["Sí", "No", "N.A."].index(val_actual)
+                    # Inicializar en la sesión si no existe
+                    if f"widget_resp_{q_id}" not in st.session_state:
+                        st.session_state[f"widget_resp_{q_id}"] = item["respuesta_defecto"]
                     
                     st.radio(
                         f"Respuesta_{q_id}",
                         options=["Sí", "No", "N.A."],
-                        index=default_idx,
                         key=f"widget_resp_{q_id}",
                         horizontal=True,
                         label_visibility="collapsed"
