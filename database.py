@@ -260,24 +260,70 @@ def registrar_revision(datos_revision):
                 "Respuestas": datos_revision["Respuestas"]
             }])
             
-            df_actual = pd.read_excel(LOCAL_DB_FILE, sheet_name="Registro")
+            # Determinar dinámicamente si la pestaña se llama 'Registro' o 'Historial'
+            try:
+                xl = pd.ExcelFile(LOCAL_DB_FILE)
+                sheets = xl.sheet_names
+                sheet_historial = "Registro" if "Registro" in sheets else ("Historial" if "Historial" in sheets else "Registro")
+            except Exception:
+                sheet_historial = "Registro"
+                
+            df_actual = pd.read_excel(LOCAL_DB_FILE, sheet_name=sheet_historial)
             df_actual = pd.concat([df_actual, nueva_fila], ignore_index=True)
             df_proyectos = pd.read_excel(LOCAL_DB_FILE, sheet_name="Proyectos")
             
             with pd.ExcelWriter(LOCAL_DB_FILE, engine="openpyxl") as writer:
                 df_proyectos.to_excel(writer, sheet_name="Proyectos", index=False)
-                df_actual.to_excel(writer, sheet_name="Registro", index=False)
+                df_actual.to_excel(writer, sheet_name=sheet_historial, index=False)
             return True
         except Exception as e:
             st.error(f"Error al escribir localmente: {e}")
             
     return False
 
+def normalizar_df_historial(df):
+    columnas_requeridas = {
+        "ID_Revision": "",
+        "Fecha": "",
+        "LCL": "",
+        "Cliente": "",
+        "Distrito": "",
+        "Contratista": "",
+        "Supervisor": "",
+        "Tipo_Atencion": "",
+        "Numero_Revision": 1,
+        "Estado": "",
+        "Observaciones": "",
+        "Respuestas": "{}"
+    }
+    
+    # Asegurar que todas las columnas existan
+    for col, default_val in columnas_requeridas.items():
+        if col not in df.columns:
+            df[col] = default_val
+            
+    # Rellenar nulos
+    for col, default_val in columnas_requeridas.items():
+        df[col] = df[col].fillna(default_val)
+        
+    # Saneamiento de ID_Revision vacío para filas antiguas
+    if not df.empty:
+        df["ID_Revision"] = df["ID_Revision"].astype(str).str.strip()
+        mask_vacio = (df["ID_Revision"] == "") | (df["ID_Revision"] == "None")
+        if mask_vacio.any():
+            # Generar un ID pseudo-único para filas antiguas
+            df.loc[mask_vacio, "ID_Revision"] = df[mask_vacio].apply(
+                lambda r: f"REV-ANT-{str(r['LCL']).strip()}-{str(r.name)}", axis=1
+            )
+            
+    return df
+
 def obtener_historial():
     """
     Obtiene todas las revisiones del historial.
     """
     modo = verificar_modo_conexion()
+    df_resultado = None
     
     if modo == "gsheets":
         client = obtener_cliente_gspread()
@@ -285,31 +331,51 @@ def obtener_historial():
             try:
                 sh = client.open_by_key(HISTORY_SPREADSHEET_ID)
                 worksheet = sh.worksheet("Registro")
-                records = worksheet.get_all_records()
-                if records:
-                    df = pd.DataFrame(records)
-                    # Normalizar nombres de columnas a español de tu script si es necesario
-                    # Pero usaremos los del dataframe directamente.
-                    # Mapear nombres si tienen discrepancia:
+                
+                # Leer usando get_all_values para evitar errores de cabeceras no únicas
+                data = worksheet.get_all_values()
+                if data:
+                    headers = [str(h).strip() for h in data[0]]
+                    rows = data[1:]
+                    
+                    # Sanear cabeceras duplicadas o vacías para evitar colisiones en pandas/gspread
+                    cleaned_headers = []
+                    for idx, h in enumerate(headers):
+                        if not h:
+                            cleaned_headers.append(f"Col_Vacia_{idx}")
+                        elif h in cleaned_headers:
+                            cleaned_headers.append(f"{h}_{idx}")
+                        else:
+                            cleaned_headers.append(h)
+                            
+                    df = pd.DataFrame(rows, columns=cleaned_headers)
+                    
+                    # Normalizar nombres de columnas internos
                     df.rename(columns={
                         "Nº Revisión": "Numero_Revision",
                         "Tipo de atención": "Tipo_Atencion"
                     }, inplace=True)
-                    return df
+                    df_resultado = df
             except Exception as e:
                 st.warning(f"Error al leer historial desde Google Sheets: {e}. Usando local.")
                 modo = "local"
                 
-    if modo == "local":
+    if modo == "local" or df_resultado is None:
         inicializar_db_local()
         try:
-            df = pd.read_excel(LOCAL_DB_FILE, sheet_name="Registro")
-            return df
+            xl = pd.ExcelFile(LOCAL_DB_FILE)
+            sheets = xl.sheet_names
+            sheet_historial = "Registro" if "Registro" in sheets else ("Historial" if "Historial" in sheets else "Registro")
+            
+            df = pd.read_excel(LOCAL_DB_FILE, sheet_name=sheet_historial)
+            # Normalizar columnas por compatibilidad
+            df.rename(columns={
+                "Nº Revisión": "Numero_Revision",
+                "Tipo de atención": "Tipo_Atencion"
+            }, inplace=True)
+            df_resultado = df
         except Exception as e:
             st.error(f"Error al leer historial local: {e}")
+            df_resultado = pd.DataFrame()
             
-    return pd.DataFrame(columns=[
-        "ID_Revision", "Fecha", "LCL", "Cliente", "Distrito", 
-        "Contratista", "Supervisor", "Tipo_Atencion", 
-        "Numero_Revision", "Estado", "Observaciones", "Respuestas"
-    ])
+    return normalizar_df_historial(df_resultado)
