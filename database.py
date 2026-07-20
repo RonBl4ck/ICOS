@@ -23,6 +23,14 @@ LOCAL_DB_FILE = "db_local.xlsx"
 # Configuración de mapeo de columnas para la extracción de LCL y datos de las 4 hojas
 HOJAS_CONFIG = [
     {
+        "nombre": "ALP2026",
+        "lcl_cols": [18],            # S (ODM Workzone)
+        "supervisor_col": 0,         # A
+        "cliente_col": 4,            # E
+        "contratista_col": 20,       # U
+        "distrito_col": 14           # O
+    },
+    {
         "nombre": "ODM2026",
         "lcl_cols": [25],            # Z
         "supervisor_col": 0,         # A
