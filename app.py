@@ -199,12 +199,20 @@ if page == "📝 Nuevo Formato ICO":
                     if proyecto:
                         st.session_state.proyecto_encontrado = proyecto
                         st.session_state.lcl_buscado = lcl_input
+                        # Limpiar observaciones de la búsqueda previa
+                        if "txt_observaciones" in st.session_state:
+                            del st.session_state["txt_observaciones"]
+                        # Resetear respuestas del checklist para el nuevo proyecto
+                        checklist_items = checklists.obtener_checklist_completo(st.session_state.get("tipo_atencion_actual", "Reforma"))
+                        for item in checklist_items:
+                            k_name = f"widget_resp_{item['id']}"
+                            st.session_state[k_name] = item["respuesta_defecto"]
                         st.success(f"¡Proyecto {lcl_input} cargado!")
                         st.rerun()
                     else:
                         st.session_state.proyecto_encontrado = None
                         st.session_state.lcl_buscado = None
-                        st.error(f"Error: LCL '{lcl_input}' no existe.")
+                        st.error(f"Error: LCL '{lcl_input}' no existe en Google Sheets ni en la BD local.")
             else:
                 st.warning("Por favor, ingrese un código LCL.")
                 
@@ -215,13 +223,13 @@ if page == "📝 Nuevo Formato ICO":
             st.markdown("---")
             st.subheader("2. Información General")
             
-            st.text_input("Cliente", value=proyecto.get("Cliente", ""), disabled=True, key="lbl_cliente")
-            st.text_input("Distrito", value=proyecto.get("Distrito", ""), disabled=True, key="lbl_distrito")
-            st.text_input("Contratista", value=proyecto.get("Contratista", ""), disabled=True, key="lbl_contratista")
-            st.text_input("Supervisor Revisor", value=proyecto.get("Supervisor", ""), disabled=True, key="lbl_supervisor")
+            st.text_input("Cliente", value=proyecto.get("Cliente", ""), disabled=True)
+            st.text_input("Distrito", value=proyecto.get("Distrito", ""), disabled=True)
+            st.text_input("Contratista", value=proyecto.get("Contratista", ""), disabled=True)
+            st.text_input("Supervisor Revisor", value=proyecto.get("Supervisor", ""), disabled=True)
             
             fecha_hoy = datetime.date.today().strftime("%Y-%m-%d")
-            st.text_input("Fecha de Auditoría", value=fecha_hoy, disabled=True, key="lbl_fecha")
+            st.text_input("Fecha de Auditoría", value=fecha_hoy, disabled=True)
             
             num_revision = st.number_input(
                 "Número de Revisión",

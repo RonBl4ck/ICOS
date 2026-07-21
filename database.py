@@ -117,6 +117,21 @@ def obtener_cliente_gspread():
             return None
     return None
 
+@st.cache_data(ttl=300, show_spinner=False)
+def _obtener_datos_hoja_gsheets(sheet_name):
+    """
+    Lee y almacena en caché (300s) los datos de una pestaña de Google Sheets.
+    """
+    client = obtener_cliente_gspread()
+    if client:
+        try:
+            sh = client.open_by_key(DATA_SPREADSHEET_ID)
+            worksheet = sh.worksheet(sheet_name)
+            return worksheet.get_all_values()
+        except Exception:
+            return []
+    return []
+
 def inicializar_db_local():
     """
     Crea el archivo db_local.xlsx con datos semilla si no existe.
@@ -133,72 +148,74 @@ def inicializar_db_local():
             df_proyectos.to_excel(writer, sheet_name="Proyectos", index=False)
             df_historial.to_excel(writer, sheet_name="Registro", index=False)
 
+def _normalizar_codigo(val):
+    if val is None:
+        return ""
+    val_str = str(val).replace('\xa0', '').strip().upper()
+    if val_str.endswith(".0"):
+        val_str = val_str[:-2]
+    return val_str
+
 def buscar_proyecto_por_lcl(lcl):
     """
-    Busca un proyecto por LCL consultando las 4 hojas en Google Sheets.
+    Busca un proyecto por LCL consultando las hojas configuradas en Google Sheets o la BD local.
     Retorna un diccionario con los datos del proyecto o None si no existe.
     """
     modo = verificar_modo_conexion()
-    lcl_clean = str(lcl).strip().upper()
+    lcl_clean = _normalizar_codigo(lcl)
+    if not lcl_clean:
+        return None
     
     if modo == "gsheets":
-        client = obtener_cliente_gspread()
-        if client:
-            try:
-                # Abrir el libro de datos externo
-                sh = client.open_by_key(DATA_SPREADSHEET_ID)
-                
-                # Iterar por cada hoja configurada
-                for cfg in HOJAS_CONFIG:
-                    try:
-                        worksheet = sh.worksheet(cfg["nombre"])
-                        data = worksheet.get_all_values()
-                        
-                        if not data:
-                            continue
-                            
-                        # Recorrer filas buscando coincidencia de LCL
-                        for row in data:
-                            # Calcular el máximo índice de columna requerido
-                            max_idx = max(
-                                cfg["supervisor_col"], 
-                                cfg["cliente_col"], 
-                                cfg["contratista_col"], 
-                                cfg["distrito_col"], 
-                                *cfg["lcl_cols"]
-                            )
-                            if len(row) <= max_idx:
-                                continue
-                                
-                            # Comparar en las columnas designadas
-                            for lcl_col in cfg["lcl_cols"]:
-                                row_lcl = str(row[lcl_col]).strip().upper()
-                                if row_lcl and row_lcl == lcl_clean:
-                                    # Encontrado: Extraer los datos mapeados
-                                    return {
-                                        "LCL": row[lcl_col].strip(),
-                                        "Cliente": row[cfg["cliente_col"]].strip(),
-                                        "Distrito": row[cfg["distrito_col"]].strip(),
-                                        "Contratista": row[cfg["contratista_col"]].strip(),
-                                        "Supervisor": row[cfg["supervisor_col"]].strip()
-                                    }
-                    except Exception as e:
-                        # Si falla una pestaña (ej. no existe o no hay acceso), continuamos con las demás
+        try:
+            # Iterar por cada hoja configurada
+            for cfg in HOJAS_CONFIG:
+                data = _obtener_datos_hoja_gsheets(cfg["nombre"])
+                if not data:
+                    continue
+                    
+                # Recorrer filas buscando coincidencia de LCL
+                for row in data:
+                    # Calcular el máximo índice de columna requerido
+                    max_idx = max(
+                        cfg["supervisor_col"], 
+                        cfg["cliente_col"], 
+                        cfg["contratista_col"], 
+                        cfg["distrito_col"], 
+                        *cfg["lcl_cols"]
+                    )
+                    if len(row) <= max_idx:
                         continue
-            except Exception as e:
-                st.warning(f"Error al buscar en Google Sheets: {e}. Cambiando a base de datos local.")
-                modo = "local"
+                        
+                    # Comparar en las columnas designadas
+                    for lcl_col in cfg["lcl_cols"]:
+                        row_lcl = _normalizar_codigo(row[lcl_col])
+                        if row_lcl and row_lcl == lcl_clean:
+                            # Encontrado: Extraer los datos mapeados
+                            return {
+                                "LCL": str(row[lcl_col]).strip(),
+                                "Cliente": str(row[cfg["cliente_col"]]).strip(),
+                                "Distrito": str(row[cfg["distrito_col"]]).strip(),
+                                "Contratista": str(row[cfg["contratista_col"]]).strip(),
+                                "Supervisor": str(row[cfg["supervisor_col"]]).strip()
+                            }
+        except Exception as e:
+            st.warning(f"Error al buscar en Google Sheets: {e}. Cambiando a base de datos local.")
+            modo = "local"
                 
     if modo == "local":
         inicializar_db_local()
         try:
             df = pd.read_excel(LOCAL_DB_FILE, sheet_name="Proyectos")
-            df["LCL"] = df["LCL"].astype(str).str.strip().str.upper()
-            resultado = df[df["LCL"] == lcl_clean]
+            df["LCL_clean"] = df["LCL"].apply(_normalizar_codigo)
+            resultado = df[df["LCL_clean"] == lcl_clean]
             if not resultado.empty:
                 # Retorna el proyecto original
                 df_orig = pd.read_excel(LOCAL_DB_FILE, sheet_name="Proyectos")
-                return df_orig.iloc[resultado.index[0]].to_dict()
+                res_dict = df_orig.iloc[resultado.index[0]].to_dict()
+                if "LCL_clean" in res_dict:
+                    del res_dict["LCL_clean"]
+                return res_dict
         except Exception as e:
             st.error(f"Error al leer base de datos local: {e}")
             
