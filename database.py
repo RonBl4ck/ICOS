@@ -2,7 +2,7 @@
 """
 Módulo de Base de Datos
 Maneja la conexión a Google Sheets a través de gspread.
-Busca LCLs en 4 hojas diferentes del libro de datos externo y
+Busca LCLs en las hojas configuradas del libro de datos externo y
 registra el historial en la hoja de Registro.
 Si no hay credenciales, cae en modo local automático (db_local.xlsx).
 """
@@ -20,7 +20,7 @@ DATA_SPREADSHEET_ID = "1D2DDxIYMpxUaxJSfsHaNsX3tsvoLMow05astu2zIAV4"
 HISTORY_SPREADSHEET_ID = "1YgdZK_aFa1EDAHJZHAuCHLBNcz076_326WJCPUWeFY4"
 LOCAL_DB_FILE = "db_local.xlsx"
 
-# Configuración de mapeo de columnas para la extracción de LCL y datos de las 4 hojas
+# Configuración de mapeo de columnas para la extracción de LCL y datos de las hojas del libro externo
 HOJAS_CONFIG = [
     {
         "nombre": "ALP2026",
@@ -37,6 +37,14 @@ HOJAS_CONFIG = [
         "cliente_col": 4,            # E
         "contratista_col": 31,       # AF
         "distrito_col": 20           # U
+    },
+    {
+        "nombre": "EXPANSION_ODM2026",
+        "lcl_cols": [25, 3, 24],     # Z (ODM Workzone), D (Cod. Interno), Y (ID Proyecto)
+        "supervisor_col": 0,         # A (Supervisor)
+        "cliente_col": 4,            # E (Cliente)
+        "contratista_col": 29,       # AD (Responsable)
+        "distrito_col": 20           # U (Distrito)
     },
     {
         "nombre": "OV_2026",
